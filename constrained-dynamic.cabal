@@ -1,6 +1,7 @@
 name:                constrained-dynamic
 version:             0.1.0.0
-synopsis:            Like Data.Dynamic, but extended to allow the specification
+synopsis:            Dynamic typing with retained constraints
+description:         Like Data.Dynamic, but extended to allow the specification
                      of arbitrary constraints using ConstraintKinds.
 license:             MIT
 license-file:        LICENSE

@@ -1,3 +1,6 @@
+-- Copyright 2016 Julian Hall.  See LICENSE file at top level for details.
+
+-- | Tests for ConstrainedDynamic.
 module Main where
 
 import Test.Tasty
