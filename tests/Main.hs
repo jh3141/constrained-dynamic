@@ -21,12 +21,16 @@ tests = testGroup "Tests" [
                   fromDynamic (toDyn "hello" :: CDShow) @?= (Nothing::Maybe Bool),
          testCase "Apply a function from a typeclass to a CD value" $
                   (toDyn True :: CDShow) `applyClassFn` show @?= "True",
-         testCase "Valid classCast returns JustHasClass" $
-                  maybeApplyClassFn (const "cast OK") "cast failed"
-                                    (classCast (toDyn "hello" :: CDShow)
-                                         :: MaybeHasClass Show) @?= "cast OK",
-         testCase "Invalid classCast returns DoesNotHaveClass" $
-                  maybeApplyClassFn (const "cast OK") "cast failed"
-                                    (classCast (toDyn "hello" ::CDShow)
-                                         :: MaybeHasClass Eq) @?= "cast failed"
+         testCase "Valid classCast returns Just" $
+                  maybe "cast failed" (const "cast OK")
+                            (classCast (toDyn "hello" :: CDShow)
+                             :: Maybe CDShow) @?= "cast OK",
+         testCase "Invalid classCast returns Nothing" $
+                  maybe "cast failed" (const "cast OK")
+                             (classCast (toDyn "hello" ::CDShow)
+                              :: Maybe CDEq) @?= "cast failed",
+         testCase "Showing a 'ConstrainedDynamic Show' shows value" $
+                  show (toDyn "hello" :: CDShow) @?= "\"hello\"",
+         testCase "Showing a 'ConstrainedDynamic Eq' shows type" $
+                  show (toDyn "hello" :: CDEq) @?= "[Char]"
         ]
