@@ -2,13 +2,22 @@
 {-# LANGUAGE ScopedTypeVariables,KindSignatures #-}
 {-# LANGUAGE TypeFamilies,MultiParamTypeClasses,UndecidableInstances #-}
 
-module Data.ConstrainedDynamic where
+module Data.ConstrainedDynamic (
+                 -- types
+                 ClassConstraint,ConstrainedDynamic,
+                 -- functions that mirror functions in Data.Dynamic
+                 toDyn,fromDynamic,dynTypeRep,
+                 -- extended API
+                 dynConstraintType,applyClassFn,classCast
+                 )
+    where
 
 import Data.Typeable
 import GHC.Exts (Constraint)
 import Unsafe.Coerce
 
 -- fixme should we use kind polyorphism here?
+-- note that this is not exported as a similar definition is often used elsewhere
 data TDict :: (* -> Constraint) -> * -> * where
     TDict :: cs t => TDict cs t
 
@@ -28,12 +37,10 @@ fromDynamic (ConsDyn obj _) = cast obj
 dynTypeRep :: ConstrainedDynamic cs -> TypeRep
 dynTypeRep (ConsDyn obj _) = typeOf obj
 
--- utility functions
+-- extended API for handling constraints
 
 dynConstraintType :: forall a . Typeable a => ConstrainedDynamic a -> TypeRep
 dynConstraintType _ = typeOf (ClassConstraint :: ClassConstraint a)
-
--- extended API for handling constraints
 
 applyClassFn :: ConstrainedDynamic cs -> (forall a . cs a => a -> b) -> b
 applyClassFn (ConsDyn obj TDict) f = f obj
