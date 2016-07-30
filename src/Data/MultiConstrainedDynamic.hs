@@ -2,9 +2,9 @@
 
 -- TODO - are we still using all of these extensions?
 {-# LANGUAGE GADTs,ConstraintKinds,RankNTypes,FlexibleInstances #-}
-{-# LANGUAGE ScopedTypeVariables,KindSignatures #-}
+{-# LANGUAGE ScopedTypeVariables,KindSignatures,PolyKinds #-}
 {-# LANGUAGE TypeFamilies,MultiParamTypeClasses,UndecidableInstances #-}
-{-# LANGUAGE DataKinds,TypeOperators #-}
+{-# LANGUAGE DataKinds,TypeOperators,FlexibleContexts #-}
 
 -- | Provides a container type similar to "Data.Dynamic" but which retains
 -- information about a list of typeclass (or other constraint) that are known to
@@ -23,7 +23,8 @@ import Data.Typeable
 import GHC.Exts (Constraint)
 import Unsafe.Coerce
 import Data.ConstrainedDynamic(ClassConstraint)
-    
+import Data.Type.HasClass
+
 data MaybeHasClass :: (* -> Constraint) -> * -> * where
     JustHasClass     :: cs t => MaybeHasClass cs t
     DoesNotHaveClass :: MaybeHasClass cs t
@@ -31,7 +32,7 @@ data MaybeHasClass :: (* -> Constraint) -> * -> * where
 data LTDict :: [* -> Constraint] -> * -> * where
     LTDCons :: MaybeHasClass cs t -> LTDict css t -> LTDict (cs ': css) t
     LTDNil  :: LTDict '[] t
-              
+
 -- | A type that contains a value whose type is unknown at compile time,
 -- but for which it is known whether or not it satisfies any of a list of
 -- constraints, thus allowing operations to be performed when those
@@ -44,24 +45,33 @@ data MCDynamic (cs :: [* -> Constraint]) where
 -- internal functions
 --
 
-class TypeConstraintBuilder mhctype (cs :: * -> Constraint) t where
-    buildTypeConstraint :: mhctype cs t
+class TypeConstraintBuilder mhctype (cs :: * -> Constraint) t (flag :: k) where
+    buildTypeConstraint :: proxy flag -> mhctype cs t
 
-instance cs t => TypeConstraintBuilder MaybeHasClass cs t where
-    buildTypeConstraint = JustHasClass
+instance (HasClass cs t True) =>
+    TypeConstraintBuilder MaybeHasClass cs t True where
+        buildTypeConstraint _ =
+            case classDict (Proxy :: Proxy cs) (Proxy :: Proxy t)
+                           (Proxy :: Proxy true) of
+              TDict -> JustHasClass
+                       
+instance f ~ False => TypeConstraintBuilder MaybeHasClass cs t f where
+    buildTypeConstraint _ = DoesNotHaveClass
 
-instance {-# OVERLAPPABLE #-} TypeConstraintBuilder MaybeHasClass cs t where
-    buildTypeConstraint = DoesNotHaveClass
+checkClass :: forall cs t f .
+              (HasClass cs t f, TypeConstraintBuilder MaybeHasClass cs t f) =>
+              MaybeHasClass cs t
+checkClass = buildTypeConstraint (Proxy :: Proxy f)
 
 class LTDictBuilder dtype (css :: [(* -> Constraint)]) t where
-    buildLTDict :: LTDict css t
+    buildLTDict :: dtype css t
 
-instance LTDictBuilder LTDict (cs ': css) t where
-    buildLTDict = LTDCons buildTypeConstraint buildLTDict
+instance LTDictBuilder LTDict css t => LTDictBuilder LTDict (cs ': css) t where
+    buildLTDict = LTDCons checkClass (buildLTDict :: LTDict css t)
 
 instance LTDictBuilder LTDict '[] t where
     buildLTDict = LTDNil
-                  
+
 --
 -- functions that mirror the functions in Data.Dynamic
 --
@@ -72,7 +82,8 @@ instance LTDictBuilder LTDict '[] t where
 -- function must be used in a context where the required constraint
 -- type can be determined, for example by explicitly identifying the
 -- required type using the form @toDyn value :: ConstrainedDynamic TypeClass@.
-toDyn :: (Typeable a, cs a, Typeable cs) => a -> MCDynamic cs
+toDyn :: (Typeable a, Typeable cs, LTDictBuilder LTDict cs a) =>
+         a -> MCDynamic (cs :: [* -> Constraint])
 toDyn obj = ConsMCD obj buildLTDict
 
             {-

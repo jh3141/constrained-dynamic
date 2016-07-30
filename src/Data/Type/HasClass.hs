@@ -2,29 +2,23 @@
 
 {-# LANGUAGE DataKinds,MultiParamTypeClasses,ConstraintKinds #-}
 {-# LANGUAGE FunctionalDependencies,KindSignatures,TypeFamilies #-}
-{-# LANGUAGE FlexibleInstances,PolyKinds #-}
+{-# LANGUAGE FlexibleInstances,PolyKinds,GADTs,UndecidableInstances #-}
 
 module Data.Type.HasClass where
 
 import GHC.Exts(Constraint)
-    
+import Data.Proxy
+
+data TDict (c :: k -> Constraint) (t :: k) where
+    TDict :: c t => TDict c t
+
 class HasClass (c :: k -> Constraint) (t :: k) (b :: Bool) | c t -> b where
+    classDict :: Proxy c -> Proxy t -> Proxy b -> TDict c t
 
-instance {-# OVERLAPPABLE #-} HasClass c t False where
+instance {-# OVERLAPPABLE #-} False ~ b => HasClass c t b where
+    classDict _ _ _ = undefined
 
-type family And (a :: Bool) (b :: Bool) where
-    And True True = True
-    And a b = False
-
-type family And3 (a :: Bool) (b :: Bool) (c :: Bool) where
-    And3 True True True = True
-    And3 a b c = False
-
-type family Or (a :: Bool) (b :: Bool) where
-    Or False False = False
-    Or a b = True
-
-type family Or3 (a :: Bool) (b :: Bool) (c :: Bool) where
-    Or3 False False False = False
-    Or3 a b c = True
+class And (a :: Bool) (b :: Bool) (c :: Bool) | a b -> c
+instance And True b b
+instance And False b False
 

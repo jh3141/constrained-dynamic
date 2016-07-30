@@ -1,35 +1,42 @@
 -- Copyright 2016 Julian Hall.  See LICENSE file at top level for details.
 
 {-# LANGUAGE DataKinds,FlexibleInstances,MultiParamTypeClasses #-}
-{-# LANGUAGE FlexibleContexts,TypeFamilies #-}
+{-# LANGUAGE FlexibleContexts,TypeFamilies,UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes,ScopedTypeVariables #-}
 
 module Data.Type.HasClassPreludeInstances where
 
 import Data.Type.HasClass
-
-instance HasClass Functor (Either b) True where
-instance HasClass Functor [] True where
-instance HasClass Functor Maybe True where
-instance HasClass Functor IO True where
-instance HasClass Functor ((->) r) True where
-instance HasClass Functor ((,) b) True where
-
-instance HasClass Bounded Word True where
-instance HasClass Bounded Ordering True where
-instance HasClass Bounded Int True where
-instance HasClass Bounded Char True where
-instance HasClass Bounded Bool True where
-
-instance HasClass Enum Word True where
-instance HasClass Enum Ordering True where
-instance HasClass Enum Integer True where
-instance HasClass Enum Int True where
-instance HasClass Enum Char True where
-instance HasClass Enum Bool True where
-instance HasClass Enum () True where
-instance HasClass Enum Float True where
-instance HasClass Enum Double True where
+import Data.Proxy
     
-instance HasClass Eq Integer True where
-instance (HasClass Eq a c1, HasClass Eq a c2, c3 ~ And c1 c2) =>
-         HasClass Eq (Either a b) c3 where
+instance HasClass Functor (Either b) True where classDict _ _ _ = TDict
+instance HasClass Functor [] True where classDict _ _ _ = TDict
+instance HasClass Functor Maybe True where classDict _ _ _ = TDict
+instance HasClass Functor IO True where classDict _ _ _ = TDict
+instance HasClass Functor ((->) r) True where classDict _ _ _ = TDict
+instance HasClass Functor ((,) b) True where classDict _ _ _ = TDict
+
+instance HasClass Bounded Word True where classDict _ _ _ = TDict
+instance HasClass Bounded Ordering True where classDict _ _ _ = TDict
+instance HasClass Bounded Int True where classDict _ _ _ = TDict
+instance HasClass Bounded Char True where classDict _ _ _ = TDict
+instance HasClass Bounded Bool True where classDict _ _ _ = TDict
+
+instance HasClass Enum Word True where classDict _ _ _ = TDict
+instance HasClass Enum Ordering True where classDict _ _ _ = TDict
+instance HasClass Enum Integer True where classDict _ _ _ = TDict
+instance HasClass Enum Int True where classDict _ _ _ = TDict
+instance HasClass Enum Char True where classDict _ _ _ = TDict
+instance HasClass Enum Bool True where classDict _ _ _ = TDict
+instance HasClass Enum () True where classDict _ _ _ = TDict
+instance HasClass Enum Float True where classDict _ _ _ = TDict
+instance HasClass Enum Double True where classDict _ _ _ = TDict
+    
+instance HasClass Eq Integer True where classDict _ _ _ = TDict
+instance (HasClass Eq a f1, HasClass Eq b f2, And f1 f2 f3) =>
+    HasClass Eq (Either a b) f3 where
+        classDict peq _ pt =
+            case classDict peq (Proxy :: Proxy a) (Proxy :: Proxy f1) of
+              TDict ->
+                  case classDict peq (Proxy :: Proxy b) (Proxy :: Proxy f2) of
+                    TDict -> TDict
