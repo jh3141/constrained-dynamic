@@ -9,14 +9,15 @@
 -- | Provides a container type similar to "Data.Dynamic" but which retains
 -- information about a list of typeclass (or other constraint) that are known to
 -- be available for the type of the object contained inside.
-module Data.MultiConstrainedDynamic {- (
+module Data.MultiConstrainedDynamic (
                  -- * Types
-                 ClassConstraint(..),ConstrainedDynamic,
+                 ClassConstraint(..),MCDynamic,
                  -- * Functions that mirror functions in Data.Dynamic
                  toDyn,fromDynamic,fromDyn,dynTypeRep,
                  -- * Extended API for managing and using class constraints
-                 dynConstraintType,applyClassFn,classCast
-                 ) -}
+                 dynConstraintTypes,dynAllConstraintTypes,
+                 dynUnmatchedConstraintTypes,applyClassFn
+                 )
     where
 
 import Data.Typeable
@@ -24,14 +25,7 @@ import GHC.Exts (Constraint)
 import Unsafe.Coerce
 import Data.ConstrainedDynamic(ClassConstraint(..))
 import Data.Type.HasClass
-
-data MaybeHasClass :: (* -> Constraint) -> * -> * where
-    JustHasClass     :: cs t => MaybeHasClass cs t
-    DoesNotHaveClass :: MaybeHasClass cs t
-
-data LTDict :: [* -> Constraint] -> * -> * where
-    LTDCons :: MaybeHasClass cs t -> LTDict css t -> LTDict (cs ': css) t
-    LTDNil  :: LTDict '[] t
+import Data.Type.LTDict
 
 -- | A type that contains a value whose type is unknown at compile time,
 -- but for which it is known whether or not it satisfies any of a list of
@@ -40,79 +34,6 @@ data LTDict :: [* -> Constraint] -> * -> * where
 data MCDynamic (cs :: [* -> Constraint]) where
     ConsMCD :: (Typeable a, Typeable cs) =>
                a -> LTDict cs a -> MCDynamic cs
-
---
--- internal functions
---
-
-class TypeConstraintBuilder mhctype (cs :: * -> Constraint) t (flag :: k) where
-    buildTypeConstraint :: proxy flag -> mhctype cs t
-
-instance (HasClass cs t True) =>
-    TypeConstraintBuilder MaybeHasClass cs t True where
-        buildTypeConstraint _ =
-            case classDict (Proxy :: Proxy cs) (Proxy :: Proxy t)
-                           (Proxy :: Proxy true) of
-              TDict -> JustHasClass
-
-instance {-# OVERLAPPABLE #-} f ~ False =>
-    TypeConstraintBuilder MaybeHasClass cs t f where
-        buildTypeConstraint _ = DoesNotHaveClass
-
-checkClass :: forall cs t f .
-              (HasClass cs t f, TypeConstraintBuilder MaybeHasClass cs t f) =>
-              MaybeHasClass cs t
-checkClass = buildTypeConstraint (Proxy :: Proxy f)
-
-class LTDictBuilder dtype (css :: [(* -> Constraint)]) t where
-    buildLTDict :: dtype css t
-
-instance (HasClass cs t f,
-          TypeConstraintBuilder MaybeHasClass cs t f,
-          LTDictBuilder LTDict css t)
-              => LTDictBuilder LTDict (cs ': css) t where
-    buildLTDict = LTDCons checkClass (buildLTDict :: LTDict css t)
-
-instance LTDictBuilder LTDict '[] t where
-    buildLTDict = LTDNil
-
-class LTDictConstraintLister (css :: [(* -> Constraint)]) where
-    getAllConstraints :: LTDict css a -> [TypeRep]
-    getMatchedConstraints :: LTDict css a -> [TypeRep]
-    getUnmatchedConstraints :: LTDict css a -> [TypeRep]
-
-instance LTDictConstraintLister '[] where
-    getAllConstraints _ = []
-    getMatchedConstraints _ = []
-    getUnmatchedConstraints _ = []
-
-instance (Typeable cs, LTDictConstraintLister css) => LTDictConstraintLister (cs ': css) where
-    getAllConstraints (LTDCons _ t) =
-        typeOf (ClassConstraint :: ClassConstraint cs) :
-               getAllConstraints t
-    getMatchedConstraints (LTDCons JustHasClass t) =
-        typeOf (ClassConstraint :: ClassConstraint cs) :
-               getMatchedConstraints t
-    getMatchedConstraints (LTDCons DoesNotHaveClass t) =
-        getMatchedConstraints t
-    getUnmatchedConstraints (LTDCons DoesNotHaveClass t) =
-        typeOf (ClassConstraint :: ClassConstraint cs) :
-               getUnmatchedConstraints t
-    getUnmatchedConstraints (LTDCons JustHasClass t) =
-        getUnmatchedConstraints t
-
-class LTDictSearch (css :: [(* -> Constraint)]) (cs :: * -> Constraint) where
-    ltdSearch :: proxy cs -> LTDict css a -> MaybeHasClass cs a
-
-instance LTDictSearch '[] cs where
-    ltdSearch _ _ = DoesNotHaveClass
-
-instance LTDictSearch (cs ': css) cs where
-    ltdSearch _ (LTDCons m _) = m
-
-instance {-# OVERLAPPABLE #-} LTDictSearch css cs =>
-    LTDictSearch (unmatched ': css) cs where
-        ltdSearch p (LTDCons _ t) = ltdSearch p t
 
 --
 -- functions that mirror the functions in Data.Dynamic
