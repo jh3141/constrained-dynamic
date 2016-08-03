@@ -43,6 +43,12 @@ data MCDynamic (cs :: [* -> Constraint]) where
 -- function must be used in a context where the required list of constraint
 -- types can be determined, for example by explicitly identifying the
 -- required type using the form @toDyn value :: MCDynamic [TypeClass,...]@.
+--
+-- Additionally, there must be appropriate instances of the type class 'HasClass'
+-- that describe instances available for type classes that are to be used
+-- with the dynamic object and the type to be included in it.  In most
+-- circumstances you should at least import @Data.Type.HasClassPreludeInstances@
+-- to allow the use of instances of standard Prelude classes and types.
 toDyn :: (Typeable a, Typeable cs, LTDictBuilder LTDict cs a) =>
          a -> MCDynamic (cs :: [* -> Constraint])
 toDyn obj = ConsMCD obj buildLTDict
