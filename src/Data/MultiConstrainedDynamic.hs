@@ -41,7 +41,7 @@ data MCDynamic (cs :: [* -> Constraint]) where
     ConsMCD :: (Typeable a, Typeable cs) =>
                a -> LTDict cs a -> MCDynamic cs
 
---
+    --
 -- internal functions
 --
 
@@ -54,9 +54,10 @@ instance (HasClass cs t True) =>
             case classDict (Proxy :: Proxy cs) (Proxy :: Proxy t)
                            (Proxy :: Proxy true) of
               TDict -> JustHasClass
-                       
-instance f ~ False => TypeConstraintBuilder MaybeHasClass cs t f where
-    buildTypeConstraint _ = DoesNotHaveClass
+
+instance {-# OVERLAPPABLE #-} f ~ False =>
+    TypeConstraintBuilder MaybeHasClass cs t f where
+        buildTypeConstraint _ = DoesNotHaveClass
 
 checkClass :: forall cs t f .
               (HasClass cs t f, TypeConstraintBuilder MaybeHasClass cs t f) =>
@@ -66,7 +67,10 @@ checkClass = buildTypeConstraint (Proxy :: Proxy f)
 class LTDictBuilder dtype (css :: [(* -> Constraint)]) t where
     buildLTDict :: dtype css t
 
-instance LTDictBuilder LTDict css t => LTDictBuilder LTDict (cs ': css) t where
+instance (HasClass cs t f,
+          TypeConstraintBuilder MaybeHasClass cs t f,
+          LTDictBuilder LTDict css t)
+              => LTDictBuilder LTDict (cs ': css) t where
     buildLTDict = LTDCons checkClass (buildLTDict :: LTDict css t)
 
 instance LTDictBuilder LTDict '[] t where
