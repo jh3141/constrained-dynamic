@@ -10,7 +10,7 @@
 -- be available for the type of the object contained inside.
 module Data.ConstrainedDynamic (
                  -- * Types
-                 ClassConstraint,ConstrainedDynamic,
+                 ClassConstraint(..),ConstrainedDynamic,
                  -- * Functions that mirror functions in Data.Dynamic
                  toDyn,fromDynamic,fromDyn,dynTypeRep,
                  -- * Extended API for managing and using class constraints
